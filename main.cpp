@@ -1,7 +1,9 @@
 #include <dlfcn.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
 #include "plugin.h"
+
+using namespace std;
 
 /**
  * An example of how to dynamically load alternative versions of a function.
@@ -25,16 +27,22 @@ int main(int argc, char *argv[]) {
    }
 
    /* lookup the get_name symbol from the library */
-   typedef char* (*name_func)();
-   typeof (get_name) *fn = dlsym(plugin_handle, "get_name");
+   auto create_plugin = reinterpret_cast<plugin_maker>(dlsym(plugin_handle, "get_plugin"));
    char *error = dlerror();
    if (error != NULL) {
       fprintf(stderr, "Failed to find plugin name function: %s\n", error);
       exit(1);
    }
 
-   /* output the result of calling the loaded function */
-   printf("plugin name: %s\n", fn());
+   /* 
+      output the result of calling the loaded function
+      extra block ensures destructors called before being unloaded 
+   */
+   {
+      shared_ptr<plugin> plugin = create_plugin();
+      cout << "plugin name: " << plugin->name() << endl;
+   } 
+
    if (dlclose(plugin_handle) != 0) {
       fprintf(stderr, "Failed to close plugin handle: %s\n", dlerror());
       exit(1);
